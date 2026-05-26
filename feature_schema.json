@@ -1,0 +1,38 @@
+{
+  "project": "Allocation AI v2",
+  "main_sheet": "3.3 Working Table",
+  "header_row": 2,
+  "first_data_row": 3,
+  "columns": {
+    "item": {"index": 15, "excel": "O", "header": "Item"},
+    "site": {"index": 21, "excel": "U", "header": "Site"},
+    "l30": {"index": 37, "excel": "AK", "header": "L30"},
+    "d30": {"index": 38, "excel": "AL", "header": "D30"},
+    "d60": {"index": 39, "excel": "AM", "header": "D60"},
+    "lw": {"index": 40, "excel": "AN", "header": "LW"},
+    "ttm": {"index": 41, "excel": "AO", "header": "TTM"},
+    "qoh": {"index": 42, "excel": "AP", "header": "Qoh"},
+    "supply": {"index": 43, "excel": "AQ", "header": "Supply"},
+    "dc_avail": {"index": 50, "excel": "AX", "header": "Dc Avail"},
+    "rank": {"index": 59, "excel": "BG", "header": "Rank"},
+    "flm": {"index": 63, "excel": "BK", "header": "FLM"},
+    "days": {"index": 64, "excel": "BL", "header": "Days"},
+    "proj_demand": {"index": 65, "excel": "BM", "header": "Proj. Demand"},
+    "alloc_rec": {"index": 66, "excel": "BN", "header": "Alloc. Rec."},
+    "flag": {"index": 70, "excel": "BR", "header": "Flag"},
+    "final_alloc": {"index": 71, "excel": "BS", "header": "Final Alloc."},
+    "left_dc": {"index": 72, "excel": "BT", "header": "Left DC"},
+    "final_supply": {"index": 73, "excel": "BU", "header": "Final Supply"},
+    "demand_check": {"index": 78, "excel": "BZ", "header": "Demand Check"},
+    "helper": {"index": 79, "excel": "CA", "header": "Helper"}
+  },
+  "output_policy": {
+    "preserve_xlsb": true,
+    "overwrite_only": "Final Alloc.",
+    "blank_no_allocation": true,
+    "optional_audit_sheet": true,
+    "left_dc_simulation_group": "Item",
+    "flm_default": 1,
+    "row_order_default": "preserve"
+  }
+}

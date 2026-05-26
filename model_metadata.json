@@ -1,0 +1,10 @@
+{
+  "rows_trained": 9000,
+  "features": 860,
+  "positive_alloc_rate": 0.41833333333333333,
+  "fallback_val_mae_raw": 106.78183859047837,
+  "fallback_precision": 0.9836309523809523,
+  "fallback_recall": 0.9749262536873157,
+  "fallback_f1": 0.9792592592592593,
+  "keras_trained": false
+}
