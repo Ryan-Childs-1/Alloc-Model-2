@@ -35,18 +35,36 @@ def read_xlsb_values_pyxlsb(path: str | Path, sheet_name: str, header_row: int =
 
     rows: List[List[Any]] = []
     headers: Optional[List[Any]] = None
+    header_width: Optional[int] = None
+
+    def cells_to_dense(row_cells, width: Optional[int] = None) -> List[Any]:
+        # pyxlsb cells include their true zero-based Excel column index in c.
+        # Using c prevents hidden/blank columns from shifting every value left.
+        cells = list(row_cells)
+        if not cells:
+            return [] if width is None else [None] * width
+        max_c = max(int(getattr(c, "c", i)) for i, c in enumerate(cells))
+        out_width = max(width or 0, max_c + 1)
+        vals = [None] * out_width
+        for i, c in enumerate(cells):
+            col = int(getattr(c, "c", i))
+            if 0 <= col < out_width:
+                vals[col] = c.v
+        return vals
+
     with open_workbook(str(path)) as wb:
         with wb.get_sheet(sheet_name) as sh:
             blank_streak = 0
             for ridx, row in enumerate(sh.rows(), start=1):
-                vals = [c.v for c in row]
                 if ridx == header_row:
-                    headers = vals
+                    headers = cells_to_dense(row)
+                    header_width = len(headers)
                     continue
                 if ridx < first_data_row:
                     continue
                 if headers is None:
                     continue
+                vals = cells_to_dense(row, header_width)
                 if len(vals) < len(headers):
                     vals += [None] * (len(headers) - len(vals))
                 vals = vals[: len(headers)]

@@ -166,3 +166,9 @@ The deployable model artifact has been retrained on 84,358 valid rows from all t
 ## Fully Retrained Artifact
 
 The deployable model artifact has been retrained on 84,358 valid rows from all three provided `.xlsb` files. Keras/Torch training remains available in `train_model.py`, but this execution environment could not complete a Keras epoch on CPU before timeout, so the shipped artifact uses a fully trained all-row calibrated SGD fallback.
+
+## Patch: new workbook column/indexing fix
+
+This build includes a runtime fix for new workbooks whose parsed columns differ from the historical training files. The predictor now aligns uploaded files to the trained preprocessor schema by adding missing numeric features as `0` and missing categorical features as blank strings. This prevents `ValueError: columns are missing` during prediction.
+
+The `.xlsb` reader was also updated to use each pyxlsb cell's true Excel column index. This protects column positions when hidden or blank columns are present, so important columns such as Final Alloc., Left DC, FLM, Dc Avail, Demand Check, and Helper do not shift incorrectly.

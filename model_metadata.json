@@ -25,5 +25,11 @@
     "Daily Allocation - 130, 135, 114, 115, 153 - 5.26.2026.xlsb",
     "Daily Allocation - 132, 150 - 5.26.2026.xlsb"
   ],
-  "training_note": "All-row retrained deployable artifact. Predictions are still passed through sequential Left DC simulation, FLM rounding, and demand-protective constraints."
+  "training_note": "All-row retrained deployable artifact. Predictions are still passed through sequential Left DC simulation, FLM rounding, and demand-protective constraints.",
+  "patch_version": "2026-05-26-column-alignment-hidden-column-fix",
+  "runtime_fixes": {
+    "prediction_feature_alignment": "Missing training-time columns are added during prediction so ColumnTransformer no longer crashes on new workbook variants.",
+    "hidden_column_safe_pyxlsb_read": "pyxlsb reader now uses each cell true Excel column index to avoid shifting values when hidden or blank columns exist.",
+    "header_resolution": "Schema resolver now prefers normalized header names before absolute positions, with position fallback."
+  }
 }

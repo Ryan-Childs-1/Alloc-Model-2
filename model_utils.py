@@ -300,6 +300,28 @@ class AllocationPredictor:
         if fb_path.exists():
             self.fallback = joblib.load(fb_path)
 
+    def _align_to_preprocessor_schema(self, X: pd.DataFrame) -> pd.DataFrame:
+        """Return X with exactly the columns the trained preprocessor expects.
+
+        Historical training workbooks may contain hidden/template columns that are not
+        present in a newly uploaded workbook, or the reader may skip blank hidden
+        columns. scikit-learn ColumnTransformer raises `ValueError: columns are
+        missing` when any training-time column is absent. For prediction, missing
+        numeric features are safely filled with 0 and missing categorical features
+        with an empty string. Extra columns are retained because the
+        ColumnTransformer drops anything it was not trained to use.
+        """
+        if self.preprocessor is None or not hasattr(self.preprocessor, "feature_names_in_"):
+            return X
+        expected = list(self.preprocessor.feature_names_in_)
+        aligned = X.copy()
+        for col in expected:
+            if col not in aligned.columns:
+                aligned[col] = "" if col.startswith("cat__") else 0.0
+        # Keep expected columns first for stable behavior, while preserving extras.
+        extras = [c for c in aligned.columns if c not in expected]
+        return aligned[expected + extras]
+
     def predict(self, df: pd.DataFrame, schema_path: str = "feature_schema.json") -> Tuple[np.ndarray, np.ndarray, str]:
         X, _, _, _ = build_model_frame(df, schema_path=schema_path, training=False)
         if self.preprocessor is None:
@@ -309,6 +331,7 @@ class AllocationPredictor:
             feat = add_formula_features(canon)
             raw, prob = _raw_prediction_from_heuristic(feat)
             return raw, prob, "rule_fallback_no_model_artifacts"
+        X = self._align_to_preprocessor_schema(X)
         Xt = _to_dense_float32(self.preprocessor.transform(X.replace([np.inf, -np.inf], np.nan)))
         if self.keras_path.exists():
             try:
@@ -318,7 +341,7 @@ class AllocationPredictor:
                 pass
         if self.fallback is not None:
             raw, prob = _fallback_predict(self.fallback, Xt)
-            return raw, prob, "sklearn_sgd_full_data_calibrated"
+            return raw, prob, "sklearn_full_data_ensemble"
         from feature_engineering import canonicalize_dataframe, add_formula_features
         canon, _ = canonicalize_dataframe(df, schema_path)
         feat = add_formula_features(canon)
