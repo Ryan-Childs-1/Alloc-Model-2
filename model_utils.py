@@ -228,7 +228,7 @@ def _fallback_predict(model: Dict[str, Any], X_dense: np.ndarray) -> Tuple[np.nd
     prob = np.mean(probs, axis=0) if probs else np.zeros(len(X_dense))
     raws = []
     for reg in model.get("regressors", {}).values():
-        raws.append(np.expm1(reg.predict(X_dense)).clip(min=0))
+        raws.append(np.expm1(np.clip(reg.predict(X_dense), 0, 8)).clip(min=0))
     raw = np.mean(raws, axis=0) if raws else np.zeros(len(X_dense))
     return raw, prob
 
@@ -318,7 +318,7 @@ class AllocationPredictor:
                 pass
         if self.fallback is not None:
             raw, prob = _fallback_predict(self.fallback, Xt)
-            return raw, prob, "sklearn_ensemble_plus_mlp"
+            return raw, prob, "sklearn_sgd_full_data_calibrated"
         from feature_engineering import canonicalize_dataframe, add_formula_features
         canon, _ = canonicalize_dataframe(df, schema_path)
         feat = add_formula_features(canon)

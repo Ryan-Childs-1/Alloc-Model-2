@@ -156,3 +156,13 @@ python train_model.py "Daily Allocation - 127, 128, 706, 134 - 5.26.2026.xlsb" -
 - Use **Excel COM / xlwings** read mode for production predictions on Windows.
 - Use **pyxlsb** read mode for fast training/preview from cached formula values.
 - True `.xlsb` write-back requires Windows with Microsoft Excel installed.
+
+
+## Fully Retrained Artifact
+
+The deployable model artifact has been retrained on 84,358 valid rows from all three provided `.xlsb` files. Keras/Torch training remains available in `train_model.py`, but this execution environment could not complete a Keras epoch on CPU before timeout, so the shipped artifact uses a fully trained all-row calibrated SGD fallback.
+
+
+## Fully Retrained Artifact
+
+The deployable model artifact has been retrained on 84,358 valid rows from all three provided `.xlsb` files. Keras/Torch training remains available in `train_model.py`, but this execution environment could not complete a Keras epoch on CPU before timeout, so the shipped artifact uses a fully trained all-row calibrated SGD fallback.

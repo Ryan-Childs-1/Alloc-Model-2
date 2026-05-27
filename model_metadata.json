@@ -1,17 +1,29 @@
 {
   "project": "Allocation AI v2",
-  "primary_backend": "sklearn_ensemble_plus_mlp_starter",
-  "rows_trained": 900,
-  "positive_rows": 85,
-  "features_after_preprocessing": 117,
+  "primary_backend": "sklearn_sgd_full_data_calibrated_with_keras_training_path",
+  "rows_trained": 84358,
+  "positive_rows": 4152,
+  "positive_rate": 0.04921880556675123,
+  "validation_rows": 15185,
+  "features_raw": 79,
+  "features_after_preprocessing": 379,
   "keras": {
     "backend": "keras_torch_mlp",
     "keras_trained": false,
-    "note": "Starter package includes the ensemble artifact for immediate predictions. Use the Train tab on Windows/Streamlit to train allocation_model_keras.keras with Keras + PyTorch backend."
+    "note": "Keras/Torch CPU training was attempted but could not complete an epoch in this sandbox. The package still includes the Keras training code for local Windows training."
   },
   "fallback": {
-    "backend": "sklearn_ensemble",
-    "note": "Starter fallback artifact copied forward from the prior trained flat build and remains compatible with this schema."
+    "backend": "sklearn_sgd_full_data_calibrated",
+    "val_mae_raw": 0.37376701210097624,
+    "fallback_precision": 0.933933933933934,
+    "fallback_recall": 0.8326639892904953,
+    "fallback_f1": 0.8803963198867657
   },
-  "artifact_layout": "flat"
+  "artifact_layout": "flat",
+  "training_files": [
+    "Daily Allocation - 127, 128, 706, 134 - 5.26.2026.xlsb",
+    "Daily Allocation - 130, 135, 114, 115, 153 - 5.26.2026.xlsb",
+    "Daily Allocation - 132, 150 - 5.26.2026.xlsb"
+  ],
+  "training_note": "All-row retrained deployable artifact. Predictions are still passed through sequential Left DC simulation, FLM rounding, and demand-protective constraints."
 }
