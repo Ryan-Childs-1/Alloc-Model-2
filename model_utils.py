@@ -300,27 +300,100 @@ class AllocationPredictor:
         if fb_path.exists():
             self.fallback = joblib.load(fb_path)
 
-    def _align_to_preprocessor_schema(self, X: pd.DataFrame) -> pd.DataFrame:
-        """Return X with exactly the columns the trained preprocessor expects.
+    def _expected_preprocessor_columns(self) -> list[str]:
+        """Get every raw input column required by the trained ColumnTransformer.
 
-        Historical training workbooks may contain hidden/template columns that are not
-        present in a newly uploaded workbook, or the reader may skip blank hidden
-        columns. scikit-learn ColumnTransformer raises `ValueError: columns are
-        missing` when any training-time column is absent. For prediction, missing
-        numeric features are safely filled with 0 and missing categorical features
-        with an empty string. Extra columns are retained because the
-        ColumnTransformer drops anything it was not trained to use.
+        Different scikit-learn versions expose this information in slightly different
+        places.  The app must not depend only on ``feature_names_in_`` because older
+        or re-serialized preprocessors may not preserve it, and then uploaded files
+        can crash with ``ValueError: columns are missing``.
         """
-        if self.preprocessor is None or not hasattr(self.preprocessor, "feature_names_in_"):
+        if self.preprocessor is None:
+            return []
+        expected: list[str] = []
+        if hasattr(self.preprocessor, "feature_names_in_"):
+            expected.extend([str(c) for c in list(self.preprocessor.feature_names_in_)])
+        # ColumnTransformer stores the actual selected column names in transformers_.
+        for item in getattr(self.preprocessor, "transformers_", []) or []:
+            if len(item) < 3:
+                continue
+            cols = item[2]
+            if isinstance(cols, (list, tuple)):
+                expected.extend([str(c) for c in cols if not isinstance(c, int)])
+        # Stable de-dupe preserving order.
+        seen = set()
+        out: list[str] = []
+        for c in expected:
+            if c not in seen:
+                out.append(c)
+                seen.add(c)
+        return out
+
+    @staticmethod
+    def _duplicate_header_base(col: str) -> str:
+        # The reader de-dupes repeated Excel headers as Header__2, Header__3, etc.
+        # When a trained feature expected n__FLM but a new workbook exposes only
+        # n__FLM__2, copy from the duplicate instead of filling with zero.
+        import re
+        return re.sub(r"__\d+$", "", str(col))
+
+    def _align_to_preprocessor_schema(self, X: pd.DataFrame) -> pd.DataFrame:
+        """Return X with all columns required by the trained preprocessor.
+
+        Hidden columns, blank columns, and duplicate headers are common in the Daily
+        Allocation workbook.  A new workbook may therefore not create exactly the same
+        engineered feature names as the training workbooks.  This method guarantees
+        that every trained column exists before ColumnTransformer.transform is called.
+        Missing numeric features are filled with 0. Missing categorical features are
+        filled with blank text. If a duplicate-header version exists, such as
+        ``n__FLM__2`` for expected ``n__FLM``, the duplicate value is copied.
+        """
+        expected = self._expected_preprocessor_columns()
+        if not expected:
             return X
-        expected = list(self.preprocessor.feature_names_in_)
         aligned = X.copy()
+
+        # Map duplicate-header bases to real columns available in this upload.
+        base_to_col = {}
+        for c in aligned.columns:
+            base_to_col.setdefault(self._duplicate_header_base(c), c)
+
         for col in expected:
-            if col not in aligned.columns:
+            if col in aligned.columns:
+                continue
+            base = self._duplicate_header_base(col)
+            source = base_to_col.get(base)
+            if source is not None and source in aligned.columns:
+                aligned[col] = aligned[source]
+            else:
                 aligned[col] = "" if col.startswith("cat__") else 0.0
-        # Keep expected columns first for stable behavior, while preserving extras.
+
         extras = [c for c in aligned.columns if c not in expected]
         return aligned[expected + extras]
+
+    def _safe_preprocessor_transform(self, X: pd.DataFrame):
+        """Transform with one final safety retry if sklearn still reports missing columns."""
+        import re
+        X = self._align_to_preprocessor_schema(X)
+        X = X.replace([np.inf, -np.inf], np.nan)
+        try:
+            return self.preprocessor.transform(X)
+        except ValueError as exc:
+            msg = str(exc)
+            missing = []
+            m = re.search(r"columns are missing: \{([^}]*)\}", msg)
+            if m:
+                missing = [part.strip().strip("'\"") for part in m.group(1).split(",") if part.strip()]
+            if not missing:
+                raise
+            patched = X.copy()
+            for col in missing:
+                patched[col] = "" if col.startswith("cat__") else 0.0
+            expected = self._expected_preprocessor_columns()
+            extras = [c for c in patched.columns if c not in expected]
+            if expected:
+                patched = patched[expected + extras]
+            return self.preprocessor.transform(patched.replace([np.inf, -np.inf], np.nan))
 
     def predict(self, df: pd.DataFrame, schema_path: str = "feature_schema.json") -> Tuple[np.ndarray, np.ndarray, str]:
         X, _, _, _ = build_model_frame(df, schema_path=schema_path, training=False)
@@ -331,8 +404,7 @@ class AllocationPredictor:
             feat = add_formula_features(canon)
             raw, prob = _raw_prediction_from_heuristic(feat)
             return raw, prob, "rule_fallback_no_model_artifacts"
-        X = self._align_to_preprocessor_schema(X)
-        Xt = _to_dense_float32(self.preprocessor.transform(X.replace([np.inf, -np.inf], np.nan)))
+        Xt = _to_dense_float32(self._safe_preprocessor_transform(X))
         if self.keras_path.exists():
             try:
                 raw, prob = _keras_predict(self.keras_path, Xt)
