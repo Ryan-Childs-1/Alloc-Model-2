@@ -1,38 +1,74 @@
-# Allocation AI v2
+# Allocation AI v2 — Keras Flat Build
 
-Allocation AI v2 is a Windows/Excel-based Streamlit app for Daily Allocation `.xlsb` workbooks. It preserves the original workbook structure, formulas, formatting, and binary `.xlsb` format while overwriting only the `Final Alloc.` column with AI-generated allocation values.
+This is a flat, GitHub-ready Streamlit app for Daily Allocation `.xlsb` workbooks. It preserves the original workbook structure, formulas, formatting, and binary `.xlsb` format while overwriting only the `Final Alloc.` column with AI-generated allocation values.
 
-## What this version does
+## What changed in this version
 
-- Keeps the output file as `.xlsb`
-- Writes only `Final Alloc.`
-- Returns blank cells for no-allocation rows
-- Preserves workbook formulas and formatting through Microsoft Excel COM automation
-- Uses a hybrid AI system:
-  - Keras neural classifier/regressor when TensorFlow is installed
-  - CPU fallback model using scikit-learn
-  - Rule-backed allocation engine if no model is trained yet
-- Simulates `Left DC` sequentially by item so inventory decreases as Final Alloc values are entered
-- Uses demand-protective caps so Final Supply does not exceed demand by more than the configured FLM cushion
-- Treats blank FLM as `1`
-- Treats rows without `Allocate` or `Review` as no-allocation rows
-- Optional audit sheet explains every allocation decision
+- Removed JAX completely.
+- Removed TensorFlow as a hard dependency.
+- Uses **Keras 3 with the PyTorch backend** for the neural network.
+- Keeps Windows-only Excel packages behind environment markers so requirements can install on Streamlit Cloud/Linux without failing.
+- Adds a strong fallback model using sklearn ensemble models plus MLP neural models.
+- Keeps the repo flat: no nested source folders or model folders.
+
+## Why Keras + PyTorch backend?
+
+Keras 3 is multi-backend and can run on TensorFlow, JAX, PyTorch, or OpenVINO for inference. This app sets `KERAS_BACKEND=torch` before importing Keras so the neural network avoids both TensorFlow and JAX while still using Keras.
+
+## Core behavior
+
+- Input: `.xlsb` allocation workbook.
+- Output: `.xlsb` workbook when run on Windows with Excel installed.
+- Writes only `Final Alloc.`.
+- Returns blanks, not zeros, when no allocation is recommended.
+- Preserves formulas, formatting, sheets, helper logic, and workbook structure.
+- Uses historical `Final Alloc.` values as the training target.
+- Simulates `Left DC` sequentially by `Item` so inventory decreases as allocations are entered.
+- Uses `Demand Check` and `Helper` as important model/context fields.
+- Treats blank FLM as `1`.
+- Treats rows without `Allocate` or `Review` as no-allocation rows.
+- Optional audit sheet explains each allocation decision.
+
+## Model design
+
+The app uses a hybrid system:
+
+1. **Keras neural network**
+   - Dense MLP with batch normalization and dropout.
+   - Allocation probability head predicts whether a row should allocate.
+   - Quantity head predicts raw allocation size on a log scale.
+   - Weighted losses penalize false-positive allocation behavior.
+
+2. **Fallback ensemble + MLP**
+   - HistGradientBoosting, GradientBoosting, RandomForest, ExtraTrees, and sklearn MLP models.
+   - Used automatically if Keras/PyTorch cannot load.
+
+3. **Allocation constraint engine**
+   - Enforces FLM multiples.
+   - Caps by remaining DC.
+   - Caps by demand-protective logic.
+   - Returns blanks for no-allocation rows.
+   - Updates Left DC sequentially by item.
 
 ## Workbook assumptions
 
 Main sheet: `3.3 Working Table`
 
-Important mapped columns:
-
 | Field | Column | Header |
 |---|---:|---|
 | Item | O | Item |
+| Site | U | Site |
 | L30 | AK | L30 |
+| D30 | AL | D30 |
 | D60 | AM | D60 |
+| LW | AN | LW |
 | TTM | AO | TTM |
+| Qoh | AP | Qoh |
 | Supply | AQ | Supply |
 | DC Avail | AX | Dc Avail |
+| Rank | BG | Rank |
 | FLM | BK | FLM |
+| Days | BL | Days |
 | Proj. Demand | BM | Proj. Demand |
 | Alloc. Rec. | BN | Alloc. Rec. |
 | Flag | BR | Flag |
@@ -44,67 +80,79 @@ Important mapped columns:
 
 ## Install
 
-Run this on a Windows computer with Microsoft Excel installed.
+### Normal install
 
 ```bat
 python -m venv .venv
 .venv\Scripts\activate
+python -m pip install --upgrade pip
 pip install -r requirements.txt
+streamlit run app.py
 ```
 
-TensorFlow is included in `requirements.txt`. If TensorFlow installation is not available on your machine, the app still trains and runs the scikit-learn fallback model.
-
-## Run
-
-Double-click:
+### Launch with batch file
 
 ```bat
 run_app.bat
 ```
 
-Or run:
+### If Keras or Torch is blocked
+
+Use fallback-only requirements:
 
 ```bat
+pip install -r requirements_fallback_only.txt
 streamlit run app.py
 ```
 
-## Recommended workflow
+This still provides an advanced sklearn ensemble plus the same allocation engine.
 
-1. Open the app.
-2. Go to **Train / Retrain Model**.
-3. Upload historical completed `.xlsb` workbooks where existing `Final Alloc.` values are the correct ground truth.
-4. Train the model.
-5. Go to **Predict Allocation**.
-6. Upload a new `.xlsb` workbook.
-7. Choose whether to include the optional audit sheet.
-8. Run Allocation AI.
-9. Download the completed `.xlsb` workbook.
+## Important `.xlsb` note
 
-## Production notes
+Streamlit Cloud can launch the app and can train/preview using cached `.xlsb` values, but **true preserved `.xlsb` write-back requires Windows with Microsoft Excel installed**. This is because Excel COM automation is the reliable way to preserve `.xlsb` formatting, formulas, and workbook structure.
 
-- Close the workbook in Excel before running prediction.
-- Use **Excel COM / xlwings** read mode for production.
-- Use **pyxlsb** read mode only for fast preview/training from cached formula values.
-- The app intentionally writes blanks, not zeros, when no allocation is recommended.
-- The default rounding mode is `floor` because it is safer and more demand-protective.
+## GitHub upload
 
-## Files
+Upload the files in this zip directly to the root of your GitHub repository. There are no nested folders.
 
-- `app.py` — Streamlit interface
-- `excel_bridge.py` — `.xlsb` read/write bridge using Excel COM and pyxlsb fallback
-- `feature_engineering.py` — formula-aware feature construction and group features
-- `allocation_engine.py` — sequential Left DC simulation and allocation constraints
-- `model_utils.py` — Keras neural network training/loading plus sklearn fallback
-- `train_model.py` — command-line model training
-- `schema.py` — column mapping helpers
-- `feature_schema.json` — locked workbook schema
-- `requirements.txt` — dependencies
-- `run_app.bat` — Windows launcher
+## Flat file list
 
-## Command-line training option
+```text
+app.py
+allocation_engine.py
+excel_bridge.py
+feature_engineering.py
+model_utils.py
+schema.py
+train_model.py
+feature_schema.json
+requirements.txt
+requirements_fallback_only.txt
+run_app.bat
+README.md
+preprocessor.joblib
+allocation_model_keras.keras
+allocation_fallback_ensemble.joblib
+model_metadata.json
+```
+
+The model artifacts may be regenerated by the training tab or command-line training script.
+
+## Command-line training
 
 ```bat
 python train_model.py "Daily Allocation - 127, 128, 706, 134 - 5.26.2026.xlsb" "Daily Allocation - 130, 135, 114, 115, 153 - 5.26.2026.xlsb" "Daily Allocation - 132, 150 - 5.26.2026.xlsb"
 ```
 
-The app stores trained artifacts in a local `models` folder.
+For a quick test:
+
+```bat
+python train_model.py "Daily Allocation - 127, 128, 706, 134 - 5.26.2026.xlsb" --max-rows 1000
+```
+
+## Notes
+
+- Close the workbook in Excel before running prediction.
+- Use **Excel COM / xlwings** read mode for production predictions on Windows.
+- Use **pyxlsb** read mode for fast training/preview from cached formula values.
+- True `.xlsb` write-back requires Windows with Microsoft Excel installed.

@@ -1,4 +1,4 @@
 @echo off
-cd /d "%~dp0"
+set KERAS_BACKEND=torch
 python -m streamlit run app.py
 pause

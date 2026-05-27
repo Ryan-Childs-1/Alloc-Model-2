@@ -1,10 +1,17 @@
 {
-  "rows_trained": 9000,
-  "features": 860,
-  "positive_alloc_rate": 0.41833333333333333,
-  "fallback_val_mae_raw": 106.78183859047837,
-  "fallback_precision": 0.9836309523809523,
-  "fallback_recall": 0.9749262536873157,
-  "fallback_f1": 0.9792592592592593,
-  "keras_trained": false
+  "project": "Allocation AI v2",
+  "primary_backend": "sklearn_ensemble_plus_mlp_starter",
+  "rows_trained": 900,
+  "positive_rows": 85,
+  "features_after_preprocessing": 117,
+  "keras": {
+    "backend": "keras_torch_mlp",
+    "keras_trained": false,
+    "note": "Starter package includes the ensemble artifact for immediate predictions. Use the Train tab on Windows/Streamlit to train allocation_model_keras.keras with Keras + PyTorch backend."
+  },
+  "fallback": {
+    "backend": "sklearn_ensemble",
+    "note": "Starter fallback artifact copied forward from the prior trained flat build and remains compatible with this schema."
+  },
+  "artifact_layout": "flat"
 }
